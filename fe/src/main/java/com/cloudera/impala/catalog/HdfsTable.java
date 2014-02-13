@@ -144,6 +144,9 @@ public class HdfsTable extends Table {
 
   private static final boolean SUPPORTS_VOLUME_ID;
 
+  // Indicating no partition limit in listPartition API of HiveMetaStoreClient
+  private static final short UNLIMITED_NUM_PARTITIONS=-1;
+
   static {
     try {
       // call newInstance() instead of using a shared instance from a cache
@@ -765,7 +768,7 @@ public class HdfsTable extends Table {
           Lists.newArrayList();
       if (cachedEntry == null || !(cachedEntry instanceof HdfsTable) ||
           cachedEntry.lastDdlTime_ != lastDdlTime_) {
-        msPartitions.addAll(client.listPartitions(db_.getName(), name_, Short.MAX_VALUE));
+        msPartitions.addAll(client.listPartitions(db_.getName(), name_, UNLIMITED_NUM_PARTITIONS));
       } else {
         // The table was already in the metadata cache and it has not been modified.
         Preconditions.checkArgument(cachedEntry instanceof HdfsTable);
@@ -782,7 +785,7 @@ public class HdfsTable extends Table {
           // First get a list of all the partition names for this table from the
           // metastore, this is much faster than listing all the Partition objects.
           modifiedPartitionNames.addAll(
-              client.listPartitionNames(db_.getName(), name_, Short.MAX_VALUE));
+              client.listPartitionNames(db_.getName(), name_, UNLIMITED_NUM_PARTITIONS));
         }
 
         int totalPartitions = modifiedPartitionNames.size();
