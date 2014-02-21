@@ -74,6 +74,7 @@ import com.cloudera.impala.thrift.TTable;
 import com.cloudera.impala.thrift.TTableDescriptor;
 import com.cloudera.impala.thrift.TTableType;
 import com.cloudera.impala.util.FSPermissionChecker;
+import com.cloudera.impala.util.MetaStoreUtil;
 import com.cloudera.impala.util.TAccessLevelUtil;
 import com.cloudera.impala.util.TResultRowBuilder;
 import com.google.common.base.Preconditions;
@@ -91,6 +92,9 @@ import com.google.common.collect.Sets;
 public class HdfsTable extends Table {
   // hive's default value for table property 'serialization.null.format'
   private static final String DEFAULT_NULL_COLUMN_VALUE = "\\N";
+
+  // Number of times to retry fetching the partitions from the HMS should an error occur.
+  private final static int NUM_PARTITION_FETCH_RETRIES = 5;;
 
   // string to indicate NULL. set in load() from table properties
   private String nullColumnValue_;
@@ -698,7 +702,8 @@ public class HdfsTable extends Table {
           Lists.newArrayList();
       if (cachedEntry == null || !(cachedEntry instanceof HdfsTable) ||
           cachedEntry.lastDdlTime != lastDdlTime) {
-        msPartitions.addAll(client.listPartitions(db.getName(), name, UNLIMITED_NUM_PARTITIONS));
+        msPartitions.addAll(MetaStoreUtil.fetchAllPartitions(
+            client, db.getName(), name, NUM_PARTITION_FETCH_RETRIES));
       } else {
         // The table was already in the metadata cache and it has not been modified.
         Preconditions.checkArgument(cachedEntry instanceof HdfsTable);
@@ -706,6 +711,7 @@ public class HdfsTable extends Table {
         // Set of partition names that have been modified. Partitions in this Set need to
         // be reloaded from the metastore.
         Set<String> modifiedPartitionNames = Sets.newHashSet();
+
         // If these are not the exact same object, look up the set of partition names in
         // the metastore. This is to support the special case of CTAS which creates a
         // "temp" table that doesn't actually exist in the metastore.
